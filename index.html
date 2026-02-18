@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Flood Probability Plotter (Offline)</title>
+<style>
+	:root{
+		--ink:#222;
+		--grid:#9a9a9a;
+		--light:#f7f7f7;
+		--btn:#efefef;
+		--btnb:#666;
+	}
+	body{
+		margin:0;
+		font-family: Arial, Helvetica, sans-serif;
+		color:var(--ink);
+		background:white;
+	}
+	.page{
+		max-width: 1100px;
+		margin: 18px auto 26px auto;
+		padding: 0 14px;
+	}
+	h1{
+		margin: 4px 0 10px 0;
+		font-size: 38px;
+		font-weight: 700;
+	}
+	.plotWrap{
+		display:flex;
+		justify-content:center;
+	}
+	canvas{
+		background:white;
+		border: 0;
+		width: min(980px, 96vw);
+		height: auto;
+		touch-action: none;
+	}
+	.controls{
+		margin: 8px 0 10px 0;
+		display:flex;
+		align-items:center;
+		gap: 10px;
+		flex-wrap:wrap;
+	}
+	.controls .spacer{
+		flex: 1 1 auto;
+	}
+	.btn{
+		font-family: Arial, Helvetica, sans-serif;
+		font-size: 18px;
+		padding: 6px 18px;
+		background: var(--btn);
+		border: 2px solid var(--btnb);
+		cursor: pointer;
+		box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+	}
+	.btn:active{
+		transform: translateY(1px);
+		box-shadow: 0 0 0 rgba(0,0,0,0.0);
+	}
+	.rowsBox{
+		display:flex;
+		align-items:center;
+		gap: 10px;
+		font-size: 18px;
+	}
+	.rowsBox input{
+		width: 70px;
+		font-size: 18px;
+		padding: 6px 8px;
+		border: 2px solid var(--btnb);
+	}
+	.modeBox{
+		display:flex;
+		align-items:center;
+		gap: 10px;
+		font-size: 18px;
+		user-select:none;
+	}
+	.modeBox label{
+		cursor:pointer;
+	}
+	.msg{
+		margin-left: 8px;
+		font-size: 16px;
+		color: #b00020;
+		min-height: 20px;
+	}
+	table{
+		border-collapse: collapse;
+		width: 100%;
+		table-layout: fixed;
+		font-size: 16px;
+	}
+	th, td{
+		border: 2px solid #333;
+		padding: 0;
+	}
+	th{
+		background: #f0f0f0;
+		text-align: left;
+		padding: 8px 10px;
+		font-size: 18px;
+	}
+	td input{
+		width: 100%;
+		box-sizing: border-box;
+		border: none;
+		padding: 8px 10px;
+		font-size: 16px;
+		font-family: Arial, Helvetica, sans-serif;
+		background: white;
+	}
+	td input:focus{
+		outline: 2px solid #4a90e2;
+		outline-offset: -2px;
+	}
+	.footer{
+		margin-top: 12px;
+		font-size: 14px;
+		color:#333;
+		text-align:left;
+	}
+	.smallNote{
+		font-size: 14px;
+		color:#444;
+		margin-top: 8px;
+	}
+
+	@media print{
+		.page{max-width: none; margin: 0; padding: 0;}
+		.controls, .msg, .footer{
+			margin-top: 12px;
+			font-size: 14px;
+			color:#333;
+			text-align:left;
+		}
+		.smallNote{display:none !important;}
+		h1{margin:0 0 8px 0;}
+		canvas{width: 100% !important; height: auto !important;}
+		table{font-size: 12px;}
+		th{font-size: 12px;}
+		td input{font-size: 12px;}
+		td input{
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+		}
+	}
+</style>
+</head>
+<body>
+<div class="page">
+	<h1>Flood Probability Plotter</h1>
+
+	<div class="plotWrap">
+		<canvas id="plot" width="980" height="620" aria-label="Probability plot"></canvas>
+	</div>
+
+	<div class="controls">
+		<div class="rowsBox">
+			<button class="btn" id="makeBtn" type="button">Make</button>
+			<input id="nRows" type="number" min="9" max="150" value="9" />
+			<span>rows.</span>
+		</div>
+
+		<div class="modeBox" aria-label="Plot mode">
+			<label for="modeStage">Stage</label>
+			<input id="modeStage" type="radio" name="mode" value="stage" checked />
+			<input id="modeDischarge" type="radio" name="mode" value="discharge" />
+			<label for="modeDischarge">Discharge</label>
+		</div>
+
+		<div class="spacer"></div>
+
+		<button class="btn" id="plotBtn" type="button">Plot</button>
+		<button class="btn" id="clearBtn" type="button">Clear</button>
+		<button class="btn" id="resetBtn" type="button">Reset</button>
+		<button class="btn" id="printBtn" type="button">Print/PDF</button>
+	</div>
+	<div class="msg" id="msg"></div>
+
+	<table id="dataTable">
+		<thead>
+			<tr>
+				<th style="width:12%;">Year</th>
+				<th style="width:16%;">Stage (feet)</th>
+				<th style="width:18%;">Discharge (cfs)</th>
+				<th style="width:12%;">Rank</th>
+				<th style="width:16%;">Probability</th>
+				<th style="width:16%;">Recurrence Interval</th>
+			</tr>
+		</thead>
+		<tbody id="tbody"></tbody>
+	</table>
+
+	<div class="smallNote" id="smallNote">
+		Required columns: Stage (feet) and Probability (percent). Probability is exceedance probability in percent (e.g., 10 for 10%).
+	</div>
+
+	<div class="footer">Made by Dr. G.S. Springer and ChatGPT 5.2</div>
+</div>
+
+<script>
+(() => {
+	"use strict";
+
+	const MIN_ROWS = 9;
+	const MAX_ROWS = 150;
+
+	const PROB_TICKS = [99.5, 99, 95, 90, 75, 50, 25, 10, 5, 1, 0.5, 0.1]; // percent (exceedance)
+	const canvas = document.getElementById("plot");
+	const ctx = canvas.getContext("2d");
+	const tbody = document.getElementById("tbody");
+	const nRowsInput = document.getElementById("nRows");
+	const msg = document.getElementById("msg");
+	const smallNote = document.getElementById("smallNote");
+
+	const makeBtn = document.getElementById("makeBtn");
+	const plotBtn = document.getElementById("plotBtn");
+	const clearBtn = document.getElementById("clearBtn");
+	const resetBtn = document.getElementById("resetBtn");
+	const printBtn = document.getElementById("printBtn");
+
+	const modeStage = document.getElementById("modeStage");
+	const modeDischarge = document.getElementById("modeDischarge");
+
+	// Plot geometry
+	const G = {
+		left: 120,
+		right: 40,
+		top: 150,
+		bottom: 120
+	};
+
+	let mode = "stage"; // "stage" (linear) or "discharge" (log)
+
+	let dataPoints = []; // {p: percent exceedance, y: stage/discharge}
+	let yMin = 1; // used for discharge (log)
+	let yMax = 40; // stage top or discharge top (power of 10)
+
+	// Anchors live on the border of the plot rectangle (in pixel coords)
+	let anchors = {
+		a: {x: 0, y: 0},
+		b: {x: 0, y: 0}
+	};
+	let dragging = null; // "a" or "b"
+
+	// Draggable guide lines (horizontal from top axis, vertical from right axis)
+	let guideTop = { active:false, y:0, dragging:false, pointerId:null, startY:0, moved:false };
+	let guideRight = { active:false, x:0, dragging:false, pointerId:null };
+
+	function setMessage(s){
+		msg.textContent = s || "";
+	}
+
+	function clamp(v, lo, hi){
+		return Math.max(lo, Math.min(hi, v));
+	}
+
+	// Approximation to inverse normal CDF (Acklam)
+	function normInv(p){
+		if(!(p > 0 && p < 1)) return NaN;
+
+		const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+		const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+		const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+		const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+
+		const plow = 0.02425;
+		const phigh = 1 - plow;
+
+		let q, r;
+		if(p < plow){
+			q = Math.sqrt(-2 * Math.log(p));
+			return (((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5]) /
+				((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1);
+		}
+		if(p > phigh){
+			q = Math.sqrt(-2 * Math.log(1 - p));
+			return -(((((c[0]*q + c[1])*q + c[2])*q + c[3])*q + c[4])*q + c[5]) /
+				((((d[0]*q + d[1])*q + d[2])*q + d[3])*q + 1);
+		}
+		q = p - 0.5;
+		r = q*q;
+		return (((((a[0]*r + a[1])*r + a[2])*r + a[3])*r + a[4])*r + a[5]) * q /
+			(((((b[0]*r + b[1])*r + b[2])*r + b[3])*r + b[4])*r + 1);
+	}
+
+	function normCdf(z){
+		const t = 1 / (1 + 0.2316419 * Math.abs(z));
+		const d = 0.3989423 * Math.exp(-z*z/2);
+		let prob = d*t*(0.3193815 + t*(-0.3565638 + t*(1.781478 + t*(-1.821256 + t*1.330274))));
+		if(z > 0) prob = 1 - prob;
+		return prob;
+	}
+
+	function probToX(pct){
+		const p = 1 - (pct/100);
+		return normInv(p);
+	}
+
+	function xToCanvas(z){
+		const plotL = G.left;
+		const plotR = canvas.width - G.right;
+		const zMin = probToX(PROB_TICKS[0]);
+		const zMax = probToX(PROB_TICKS[PROB_TICKS.length-1]);
+		const t = (z - zMin) / (zMax - zMin);
+		return plotL + t * (plotR - plotL);
+	}
+
+	function zAtCanvasX(x){
+		const plotL = G.left;
+		const plotR = canvas.width - G.right;
+		const zMin = probToX(PROB_TICKS[0]);
+		const zMax = probToX(PROB_TICKS[PROB_TICKS.length-1]);
+		const t = (x - plotL) / (plotR - plotL);
+		return zMin + clamp(t, 0, 1) * (zMax - zMin);
+	}
+
+	function pctFromZ(z){
+		const pNonExc = normCdf(z);
+		return (1 - pNonExc) * 100;
+	}
+
+	function yToCanvas(v){
+		const plotT = G.top;
+		const plotB = canvas.height - G.bottom;
+
+		if(mode === "stage"){
+			const t = v / yMax;
+			return plotB - t * (plotB - plotT);
+		}
+
+		const vv = Math.max(v, 1e-12);
+		const lmin = Math.log10(yMin);
+		const lmax = Math.log10(yMax);
+		const t = (Math.log10(vv) - lmin) / (lmax - lmin);
+		return plotB - t * (plotB - plotT);
+	}
+
+	function canvasToY(y){
+		const plotT = G.top;
+		const plotB = canvas.height - G.bottom;
+
+		if(mode === "stage"){
+			const t = (plotB - y) / (plotB - plotT);
+			return t * yMax;
+		}
+
+		const t = (plotB - y) / (plotB - plotT);
+		const lmin = Math.log10(yMin);
+		const lmax = Math.log10(yMax);
+		const lv = lmin + t * (lmax - lmin);
+		return Math.pow(10, lv);
+	}
+
+	function nearestBorderPoint(x, y){
+		const L = G.left;
+		const R = canvas.width - G.right;
+		const T = G.top;
+		const B = canvas.height - G.bottom;
+
+		const cx = clamp(x, L, R);
+		const cy = clamp(y, T, B);
+
+		const dL = Math.abs(cx - L);
+		const dR = Math.abs(R - cx);
+		const dT = Math.abs(cy - T);
+		const dB = Math.abs(B - cy);
+
+		const m = Math.min(dL, dR, dT, dB);
+
+		if(m === dL) return {x: L, y: cy};
+		if(m === dR) return {x: R, y: cy};
+		if(m === dT) return {x: cx, y: T};
+		return {x: cx, y: B};
+	}
+
+	function anchorHitTest(mx, my){
+		const r = 10;
+		for(const k of ["a","b"]){
+			const dx = mx - anchors[k].x;
+			const dy = my - anchors[k].y;
+			if(dx*dx + dy*dy <= r*r) return k;
+		}
+		return null;
+	}
+
+	function plotBounds(){
+		const L = G.left;
+		const R = canvas.width - G.right;
+		const T = G.top;
+		const B = canvas.height - G.bottom;
+		return {L,R,T,B};
+	}
+
+	function hitTopAxisBand(mx, my){
+		const {L,R,T} = plotBounds();
+		const above = 18;
+		const below = 12;
+		return (mx >= L && mx <= R && my >= (T - above) && my <= (T + below));
+	}
+
+	function hitRightAxisBand(mx, my){
+		const {R,T,B} = plotBounds();
+		const left = 12;
+		const right = 18;
+		return (my >= T && my <= B && mx >= (R - left) && mx <= (R + right));
+	}
+
+	function topAnchorBox(){
+		const {L,T,B} = plotBounds();
+		const s = 7;
+		const yy = clamp(guideTop.y, T, B);
+		return {x:L, y:yy, s};
+	}
+
+	function rightAnchorBox(){
+		const {R,T,B} = plotBounds();
+		const s = 7;
+		const y = (T + B)/2;
+		return {x:R, y, s};
+	}
+
+	function hitBox(mx,my, bx){
+		return (mx >= bx.x - bx.s && mx <= bx.x + bx.s && my >= bx.y - bx.s && my <= bx.y + bx.s);
+	}
+
+	function drawVerticalGuideWithTicks(x){
+		const {L,R,T,B} = plotBounds();
+		const xx = clamp(x, L, R);
+		ctx.save();
+		ctx.strokeStyle = "#111";
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.moveTo(xx, T - 8);
+		ctx.lineTo(xx, B + 8);
+		ctx.stroke();
+		ctx.restore();
+	}
+
+	function drawHorizontalGuideWithTicks(y){
+		const {L,R,T,B} = plotBounds();
+		const yy = clamp(y, T, B);
+		ctx.save();
+		ctx.strokeStyle = "#111";
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.moveTo(L - 8, yy);
+		ctx.lineTo(R + 8, yy);
+		ctx.stroke();
+		ctx.restore();
+	}
+
+	function drawGuideAnchors(){
+		// Anchors are intentionally invisible; hitboxes are still active
+		return;
+	}
+
+	function defaultAnchors(){
+		const plotL = G.left;
+		const plotR = canvas.width - G.right;
+		const plotT = G.top;
+		const plotB = canvas.height - G.bottom;
+
+		anchors.a = {x: plotL, y: plotB};   // bottom-left
+		anchors.b = {x: plotR, y: plotT};   // top-right
+	}
+
+	function niceStep(v){
+		const pow = Math.pow(10, Math.floor(Math.log10(v)));
+		const n = v / pow;
+		if(n <= 1) return 1*pow;
+		if(n <= 2) return 2*pow;
+		if(n <= 5) return 5*pow;
+		return 10*pow;
+	}
+
+	function computeYMaxStage(){
+		let m = 0;
+		for(const pt of dataPoints){
+			if(Number.isFinite(pt.y)) m = Math.max(m, pt.y);
+		}
+		if(m <= 0) return 40;
+
+		const padded = m * 1.65;
+		const approx = 8;
+		const rawTop = Math.max(Math.ceil(padded), 5);
+		const step = niceStep(rawTop / approx);
+		const topNice = Math.ceil(rawTop / step) * step;
+		return topNice;
+	}
+
+	function computeYMaxDischarge(){
+		let mn = Infinity;
+		let mx = 0;
+		for(const pt of dataPoints){
+			if(Number.isFinite(pt.y)){
+				if(pt.y > 0) mn = Math.min(mn, pt.y);
+				mx = Math.max(mx, pt.y);
+			}
+		}
+		if(!Number.isFinite(mn) || mx <= 0){
+			yMin = 1;
+			return 1000;
+		}
+
+		const paddedMax = mx * 1.65;
+		yMin = Math.pow(10, Math.floor(Math.log10(mn)));
+		const topPow = Math.ceil(Math.log10(paddedMax));
+		return Math.pow(10, topPow + 1); // extra decade padding
+	}
+
+	function computeYTicksStage(ymax){
+		const approx = 8;
+		const rawStep = ymax / approx;
+		const step = niceStep(rawStep);
+		const ticks = [];
+		for(let v=0; v<=ymax+1e-9; v+=step){
+			ticks.push(Math.round(v*1000)/1000);
+		}
+		if(ticks.length === 0 || Math.abs(ticks[ticks.length-1] - ymax) > 1e-6){
+			ticks.push(ymax);
+		}
+		return ticks;
+	}
+
+	function computeMinorYTicksStage(ymax, majorTicks){
+		if(majorTicks.length < 2) return [];
+		const step = majorTicks[1] - majorTicks[0];
+		const minorStep = step / 5;
+		const ticks = [];
+		for(let v=0; v<=ymax+1e-9; v+=minorStep){
+			let isMajor = false;
+			for(const m of majorTicks){
+				if(Math.abs(v-m) < 1e-6){ isMajor = true; break; }
+			}
+			if(!isMajor) ticks.push(v);
+		}
+		return ticks;
+	}
+
+	function computeYTicksDischarge(ymax){
+		const ticks = [];
+		const k0 = Math.floor(Math.log10(yMin));
+		const k1 = Math.ceil(Math.log10(ymax));
+		for(let k=k0; k<=k1; k++){
+			const v = Math.pow(10, k);
+			if(v >= yMin - 1e-12 && v <= ymax + 1e-12) ticks.push(v);
+		}
+		return ticks;
+	}
+
+	function computeMinorYTicksDischarge(ymax){
+		const ticks = [];
+		const k0 = Math.floor(Math.log10(yMin));
+		const k1 = Math.ceil(Math.log10(ymax));
+		for(let k=k0; k<=k1; k++){
+			const base = Math.pow(10, k);
+			for(let m=2; m<=9; m++){
+				const v = m * base;
+				if(v >= yMin - 1e-12 && v <= ymax + 1e-12) ticks.push(v);
+			}
+		}
+		return ticks;
+	}
+
+	function pointRadius(n){
+		const r = 7 - 2.2 * Math.log10(Math.max(n, 1));
+		return clamp(r, 1.2, 6);
+	}
+
+	function formatPct(p){
+		if(p === 0.5 || p === 99.5 || p === 0.1) return String(p);
+		if(Math.abs(p - Math.round(p)) < 1e-9) return String(Math.round(p));
+		return String(p);
+	}
+
+	function formatRI(ri){
+		if(ri < 2){
+			return ri.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+		}
+		if(ri < 10){
+			return ri.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+		}
+		if(ri < 100){
+			return String(Math.round(ri));
+		}
+		return String(Math.round(ri));
+	}
+
+	function formatY(v){
+		if(mode === "stage"){
+			return String(v);
+		}
+		if(v >= 1000){
+			return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		}
+		if(v >= 1){
+			return String(Math.round(v));
+		}
+		return v.toExponential(0);
+	}
+
+	function labelWithBg(text, x, y, align, baseline){
+		const padX = 4;
+		const padY = 2;
+
+		ctx.save();
+		ctx.textAlign = align;
+		ctx.textBaseline = baseline;
+
+		const metrics = ctx.measureText(text);
+		const fontSize = 20;
+
+		let w = metrics.width;
+		let h = fontSize;
+
+		let left;
+		if(align === "center") left = x - w/2;
+		else if(align === "right") left = x - w;
+		else left = x;
+
+		let top;
+		if(baseline === "top") top = y;
+		else if(baseline === "middle") top = y - h/2;
+		else if(baseline === "bottom") top = y - h;
+		else top = y - h;
+
+		ctx.fillStyle = "white";
+		ctx.fillRect(left - padX, top - padY, w + 2*padX, h + 2*padY);
+
+		ctx.fillStyle = "#222";
+		ctx.fillText(text, x, y);
+		ctx.restore();
+	}
+
+	function draw(){
+		ctx.clearRect(0,0,canvas.width,canvas.height);
+
+		drawTitles();
+		drawAxesAndGrid();
+		drawPoints();
+		drawTrendLine();
+
+		if(guideTop.active) drawHorizontalGuideWithTicks(guideTop.y);
+		if(guideRight.active) drawVerticalGuideWithTicks(guideRight.x);
+		drawGuideAnchors();
+	}
+
+	function drawTitles(){
+		ctx.save();
+		ctx.fillStyle = "#222";
+		ctx.textAlign = "center";
+
+		ctx.font = "42px Arial";
+		ctx.fillText("Recurrence Interval (years)", canvas.width/2, 54);
+
+		ctx.font = "40px Arial";
+		ctx.fillText("Probability (%)", canvas.width/2, canvas.height - 40);
+
+		ctx.translate(42, canvas.height/2);
+		ctx.rotate(-Math.PI/2);
+		ctx.font = "38px Arial";
+		ctx.fillText(mode === "stage" ? "stage (feet)" : "discharge (cfs)", 0, 0);
+		ctx.restore();
+	}
+
+	function drawAxesAndGrid(){
+		const L = G.left;
+		const R = canvas.width - G.right;
+		const T = G.top;
+		const B = canvas.height - G.bottom;
+
+		ctx.save();
+		ctx.strokeStyle = "#2a2a2a";
+		ctx.lineWidth = 4;
+		ctx.strokeRect(L, T, R-L, B-T);
+
+		// vertical grid + probability ticks
+		ctx.strokeStyle = "#7f7f7f";
+		ctx.lineWidth = 2;
+
+		ctx.fillStyle = "#222";
+		ctx.font = "20px Arial";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "top";
+
+		for(const pct of PROB_TICKS){
+			const z = probToX(pct);
+			const x = xToCanvas(z);
+
+			ctx.beginPath();
+			ctx.moveTo(x, T);
+			ctx.lineTo(x, B);
+			ctx.stroke();
+
+			ctx.strokeStyle = "#2a2a2a";
+			ctx.lineWidth = 3;
+			ctx.beginPath();
+			ctx.moveTo(x, B);
+			ctx.lineTo(x, B + 12);
+			ctx.stroke();
+
+			labelWithBg(formatPct(pct), x, B + 16, "center", "top");
+
+			ctx.beginPath();
+			ctx.moveTo(x, T);
+			ctx.lineTo(x, T - 12);
+			ctx.stroke();
+
+			labelWithBg(formatRI(100 / pct), x, T - 26, "center", "bottom");
+
+			ctx.strokeStyle = "#7f7f7f";
+			ctx.lineWidth = 2;
+		}
+
+		ctx.textBaseline = "alphabetic";
+
+		// horizontal grid + y ticks
+		ctx.textAlign = "right";
+		ctx.textBaseline = "middle";
+
+		if(mode === "stage"){
+			const yTicks = computeYTicksStage(yMax);
+			ctx.strokeStyle = "#7f7f7f";
+			ctx.lineWidth = 2;
+
+			for(const yt of yTicks){
+				const y = yToCanvas(yt);
+
+				if(yt < yMax - 1e-6){
+					ctx.beginPath();
+					ctx.moveTo(L, y);
+					ctx.lineTo(R, y);
+					ctx.stroke();
+				}
+
+				if(yt < yMax - 1e-6){
+					ctx.strokeStyle = "#2a2a2a";
+					ctx.lineWidth = 3;
+					ctx.beginPath();
+					ctx.moveTo(L-12, y);
+					ctx.lineTo(L, y);
+					ctx.stroke();
+					ctx.beginPath();
+					ctx.moveTo(R, y);
+					ctx.lineTo(R+12, y);
+					ctx.stroke();
+				}
+
+				ctx.fillStyle = "#222";
+				ctx.font = "24px Arial";
+				ctx.fillText(formatY(yt), L-18, y);
+
+				ctx.strokeStyle = "#7f7f7f";
+				ctx.lineWidth = 2;
+			}
+
+			const minor = computeMinorYTicksStage(yMax, yTicks);
+			ctx.strokeStyle = "#2a2a2a";
+			ctx.lineWidth = 2;
+			for(const yt of minor){
+				const y = yToCanvas(yt);
+				ctx.beginPath();
+				ctx.moveTo(L-7, y);
+				ctx.lineTo(L, y);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(R, y);
+				ctx.lineTo(R+7, y);
+				ctx.stroke();
+			}
+		}else{
+			const yTicks = computeYTicksDischarge(yMax);
+			ctx.strokeStyle = "#7f7f7f";
+			ctx.lineWidth = 2;
+
+			for(const yt of yTicks){
+				const y = yToCanvas(yt);
+
+				if(yt < yMax - 1e-6){
+					ctx.beginPath();
+					ctx.moveTo(L, y);
+					ctx.lineTo(R, y);
+					ctx.stroke();
+				}
+
+				if(yt < yMax - 1e-6){
+					ctx.strokeStyle = "#2a2a2a";
+					ctx.lineWidth = 3;
+					ctx.beginPath();
+					ctx.moveTo(L-12, y);
+					ctx.lineTo(L, y);
+					ctx.stroke();
+					ctx.beginPath();
+					ctx.moveTo(R, y);
+					ctx.lineTo(R+12, y);
+					ctx.stroke();
+				}
+
+				ctx.fillStyle = "#222";
+				ctx.font = "24px Arial";
+				ctx.fillText(formatY(yt), L-18, y);
+
+				ctx.strokeStyle = "#7f7f7f";
+				ctx.lineWidth = 2;
+			}
+
+			// Minor tick gridlines (faint) + minor ticks
+			const minor = computeMinorYTicksDischarge(yMax);
+
+			ctx.strokeStyle = "#c8c8c8";
+			ctx.lineWidth = 1;
+			for(const yt of minor){
+				const y = yToCanvas(yt);
+				ctx.beginPath();
+				ctx.moveTo(L, y);
+				ctx.lineTo(R, y);
+				ctx.stroke();
+			}
+
+			ctx.strokeStyle = "#2a2a2a";
+			ctx.lineWidth = 2;
+			for(const yt of minor){
+				const y = yToCanvas(yt);
+				ctx.beginPath();
+				ctx.moveTo(L-7, y);
+				ctx.lineTo(L, y);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.moveTo(R, y);
+				ctx.lineTo(R+7, y);
+				ctx.stroke();
+			}
+		}
+
+		ctx.restore();
+	}
+
+	function drawPoints(){
+		if(dataPoints.length === 0) return;
+		const r = pointRadius(dataPoints.length);
+
+		ctx.save();
+		ctx.lineWidth = 2;
+		for(const pt of dataPoints){
+			const z = probToX(pt.p);
+			const x = xToCanvas(z);
+			const y = yToCanvas(pt.y);
+
+			ctx.beginPath();
+			ctx.arc(x, y, r, 0, 2*Math.PI);
+			ctx.fillStyle = "#12a4d9";
+			ctx.fill();
+			ctx.strokeStyle = "#1b1b1b";
+			ctx.stroke();
+		}
+		ctx.restore();
+	}
+
+	function drawTrendLine(){
+		ctx.save();
+		ctx.strokeStyle = "#2e4fa2";
+		ctx.lineWidth = 5;
+		ctx.beginPath();
+		ctx.moveTo(anchors.a.x, anchors.a.y);
+		ctx.lineTo(anchors.b.x, anchors.b.y);
+		ctx.stroke();
+
+		for(const k of ["a","b"]){
+			ctx.beginPath();
+			ctx.arc(anchors[k].x, anchors[k].y, 8, 0, 2*Math.PI);
+			ctx.fillStyle = "#21b14c";
+			ctx.fill();
+			ctx.lineWidth = 3;
+			ctx.strokeStyle = "#1b1b1b";
+			ctx.stroke();
+		}
+
+		anchors.a = nearestBorderPoint(anchors.a.x, anchors.a.y);
+		anchors.b = nearestBorderPoint(anchors.b.x, anchors.b.y);
+		ctx.restore();
+	}
+
+	function tableRow(){
+		const tr = document.createElement("tr");
+		const cols = ["year","stage","discharge","rank","prob","ri"];
+		for(const c of cols){
+			const td = document.createElement("td");
+			const inp = document.createElement("input");
+			inp.type = "text";
+			inp.inputMode = "decimal";
+			inp.autocomplete = "off";
+			inp.spellcheck = false;
+			inp.dataset.col = c;
+			td.appendChild(inp);
+			tr.appendChild(td);
+		}
+		return tr;
+	}
+
+	function makeRows(n){
+		tbody.innerHTML = "";
+		for(let i=0;i<n;i++){
+			tbody.appendChild(tableRow());
+		}
+	}
+
+	function clearRows(){
+		const inputs = tbody.querySelectorAll("input");
+		for(const inp of inputs) inp.value = "";
+	}
+
+	function parseDataFromTable(){
+		const rows = Array.from(tbody.querySelectorAll("tr"));
+		const pts = [];
+		let has = false;
+
+		for(const r of rows){
+			const yStr = r.querySelector(`input[data-col="${mode === "stage" ? "stage" : "discharge"}"]`).value.trim();
+			const probStr  = r.querySelector('input[data-col="prob"]').value.trim();
+
+			if(yStr === "" && probStr === "") continue;
+
+			const yv = Number(yStr);
+			const prob = Number(probStr);
+
+			if(!Number.isFinite(yv) || !Number.isFinite(prob)){
+				return {ok:false, err:(mode === "stage" ? "Stage and Probability must be numeric (blank rows are allowed)." : "Discharge and Probability must be numeric (blank rows are allowed).")};
+			}
+			if(prob <= 0 || prob >= 100){
+				return {ok:false, err:"Probability values must be between 0 and 100 (percent)."};
+			}
+			if(mode === "stage"){
+				if(yv < 0) return {ok:false, err:"Stage values must be 0 or higher."};
+			}else{
+				if(yv <= 0) return {ok:false, err:"Discharge values must be greater than 0 for a log-scale y-axis."};
+			}
+			has = true;
+			pts.push({p: prob, y: yv});
+		}
+
+		if(!has){
+			return {ok:false, err:(mode === "stage" ? "Enter values in Stage (feet) and Probability (percent), then click Plot." : "Enter values in Discharge (cfs) and Probability (percent), then click Plot.")};
+		}
+
+		return {ok:true, pts: pts};
+	}
+
+	function cellIndexFromInput(inp){
+		const row = inp.closest("tr");
+		if(!row) return null;
+		const rows = Array.from(tbody.querySelectorAll("tr"));
+		const r = rows.indexOf(row);
+		const colOrder = ["year","stage","discharge","rank","prob","ri"];
+		const c = colOrder.indexOf(inp.dataset.col || "");
+		if(r < 0 || c < 0) return null;
+		return {r,c};
+	}
+
+	function inputAt(r, c){
+		const rows = Array.from(tbody.querySelectorAll("tr"));
+		if(r < 0 || r >= rows.length) return null;
+		const colOrder = ["year","stage","discharge","rank","prob","ri"];
+		if(c < 0 || c >= colOrder.length) return null;
+		return rows[r].querySelector(`input[data-col="${colOrder[c]}"]`);
+	}
+
+	function handlePaste(evt){
+		const target = evt.target;
+		if(!(target instanceof HTMLInputElement)) return;
+
+		const text = (evt.clipboardData || window.clipboardData).getData("text");
+		if(!text) return;
+
+		if(!/[\t\r\n]/.test(text)) return;
+
+		const start = cellIndexFromInput(target);
+		if(!start) return;
+
+		evt.preventDefault();
+
+		const lines = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n");
+		while(lines.length && lines[lines.length-1].trim()==="") lines.pop();
+
+		for(let i=0;i<lines.length;i++){
+			const cells = lines[i].split("\t");
+			for(let j=0;j<cells.length;j++){
+				const inp = inputAt(start.r + i, start.c + j);
+				if(inp) inp.value = cells[j].trim();
+			}
+		}
+	}
+
+	tbody.addEventListener("paste", handlePaste);
+
+	function pointerPos(evt){
+		const rect = canvas.getBoundingClientRect();
+		return {
+			x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+			y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+		};
+	}
+
+	function setPointerCaptureSafe(evt){
+		try{ canvas.setPointerCapture(evt.pointerId); }catch(e){}
+	}
+	function releasePointerCaptureSafe(evt){
+		try{ canvas.releasePointerCapture(evt.pointerId); }catch(e){}
+	}
+
+	canvas.addEventListener("pointerdown", (evt) => {
+	const {x,y} = pointerPos(evt);
+
+	// First priority: trendline endpoint handles (so axis guide lines don't block grabbing the green circles)
+	const hitAnchor = anchorHitTest(x,y);
+	if(hitAnchor){
+		dragging = hitAnchor;
+		setPointerCaptureSafe(evt);
+		return;
+	}
+
+	// guide anchors hitboxes (invisible)
+	if(hitBox(x,y, topAnchorBox())){
+		guideTop.active = true;
+		guideTop.dragging = true;
+		guideTop.pointerId = evt.pointerId;
+		guideTop.startY = y;
+		guideTop.y = y;
+		guideTop.moved = false;
+		setPointerCaptureSafe(evt);
+		draw();
+		return;
+	}
+	if(hitBox(x,y, rightAnchorBox())){
+		guideRight.active = true;
+		guideRight.dragging = true;
+		guideRight.pointerId = evt.pointerId;
+		guideRight.x = x;
+		setPointerCaptureSafe(evt);
+		draw();
+		return;
+	}
+
+	// click on top axis or right axis to create guides
+	if(hitTopAxisBand(x,y)){
+		guideTop.active = true;
+		guideTop.dragging = true;
+		guideTop.pointerId = evt.pointerId;
+		guideTop.y = clamp(y, G.top, canvas.height - G.bottom);
+		setPointerCaptureSafe(evt);
+		draw();
+		return;
+	}
+	if(hitRightAxisBand(x,y)){
+		guideRight.active = true;
+		guideRight.dragging = true;
+		guideRight.pointerId = evt.pointerId;
+		guideRight.x = clamp(x, G.left, canvas.width - G.right);
+		setPointerCaptureSafe(evt);
+		draw();
+		return;
+	}
+});
+
+	canvas.addEventListener("pointermove", (evt) => {
+		const {x,y} = pointerPos(evt);
+
+		if(dragging){
+			anchors[dragging] = nearestBorderPoint(x,y);
+			draw();
+			return;
+		}
+
+		if(guideTop.dragging && evt.pointerId === guideTop.pointerId){
+			guideTop.y = clamp(y, G.top, canvas.height - G.bottom);
+			if(Math.abs(y - guideTop.startY) > 2) guideTop.moved = true;
+			draw();
+			return;
+		}
+		if(guideRight.dragging && evt.pointerId === guideRight.pointerId){
+			guideRight.x = clamp(x, G.left, canvas.width - G.right);
+			draw();
+			return;
+		}
+	});
+
+	canvas.addEventListener("pointerup", (evt) => {
+		if(dragging){
+			dragging = null;
+			releasePointerCaptureSafe(evt);
+			return;
+		}
+		if(guideTop.dragging && evt.pointerId === guideTop.pointerId){
+			guideTop.dragging = false;
+			guideTop.pointerId = null;
+			releasePointerCaptureSafe(evt);
+			draw();
+			return;
+		}
+		if(guideRight.dragging && evt.pointerId === guideRight.pointerId){
+			guideRight.dragging = false;
+			guideRight.pointerId = null;
+			releasePointerCaptureSafe(evt);
+			draw();
+			return;
+		}
+	});
+
+	canvas.addEventListener("pointercancel", (evt) => {
+		dragging = null;
+		guideTop.dragging = false;
+		guideRight.dragging = false;
+		guideTop.pointerId = null;
+		guideRight.pointerId = null;
+		releasePointerCaptureSafe(evt);
+	});
+
+	// Events
+	makeBtn.addEventListener("click", () => {
+		setMessage("");
+		const n = Number(nRowsInput.value);
+		if(!Number.isInteger(n) || n < MIN_ROWS || n > MAX_ROWS){
+			setMessage(`Number of rows must be from ${MIN_ROWS} to ${MAX_ROWS}.`);
+			return;
+		}
+		makeRows(n);
+	});
+
+	clearBtn.addEventListener("click", () => {
+		setMessage("");
+		clearRows();
+		dataPoints = [];
+		yMin = 1;
+		yMax = (mode === "stage" ? 40 : 1000);
+		defaultAnchors();
+		guideTop = { active:false, y:0, dragging:false, pointerId:null, startY:0, moved:false };
+		guideRight = { active:false, x:0, dragging:false, pointerId:null };
+		draw();
+	});
+
+	printBtn.addEventListener("click", () => {
+		setMessage("");
+		draw();
+		window.print();
+	});
+
+	resetBtn.addEventListener("click", () => {
+		nRowsInput.value = String(MIN_ROWS);
+		setMessage("");
+		dataPoints = [];
+		yMin = 1;
+		yMax = (mode === "stage" ? 40 : 1000);
+		makeRows(MIN_ROWS);
+		defaultAnchors();
+		guideTop = { active:false, y:0, dragging:false, pointerId:null, startY:0, moved:false };
+		guideRight = { active:false, x:0, dragging:false, pointerId:null };
+		draw();
+	});
+
+	plotBtn.addEventListener("click", () => {
+		setMessage("");
+		const parsed = parseDataFromTable();
+		if(!parsed.ok){
+			setMessage(parsed.err);
+			return;
+		}
+		dataPoints = parsed.pts.slice();
+
+		if(mode === "stage"){
+			yMax = computeYMaxStage();
+		}else{
+			yMax = computeYMaxDischarge();
+		}
+
+		const plotL = G.left;
+		const plotR = canvas.width - G.right;
+		const plotB = canvas.height - G.bottom;
+
+		anchors.a = nearestBorderPoint(plotL, plotB);
+		if(mode === "stage"){
+			anchors.b = nearestBorderPoint(plotR, yToCanvas(yMax*0.92));
+		}else{
+			anchors.b = nearestBorderPoint(plotR, yToCanvas(yMax));
+		}
+		draw();
+	});
+
+	function applyMode(newMode){
+	mode = newMode;
+	setMessage("");
+
+	// Match the working originals: stage canvas height 620, discharge height 775
+	canvas.height = (mode === "stage") ? 620 : 775;
+
+	smallNote.textContent = (mode === "stage")
+		? "Required columns: Stage (feet) and Probability (percent). Probability is exceedance probability in percent (e.g., 10 for 10%)."
+		: "Required columns: Discharge (cfs) and Probability (percent). Probability is exceedance probability in percent (e.g., 10 for 10%).";
+
+	// Wipe the plot clean each time the mode changes (but DO NOT clear the data table)
+	dataPoints = [];
+
+	// Reset guides + anchors when switching modes (keeps it predictable)
+	guideTop = { active:false, y:0, dragging:false, pointerId:null, startY:0, moved:false };
+	guideRight = { active:false, x:0, dragging:false, pointerId:null };
+	defaultAnchors();
+
+	// Default y-axis if no data yet
+	yMin = 1;
+	yMax = (mode === "stage") ? 40 : 1000;
+
+	draw();
+}
+
+	modeStage.addEventListener("change", () => { if(modeStage.checked) applyMode("stage"); });
+	modeDischarge.addEventListener("change", () => { if(modeDischarge.checked) applyMode("discharge"); });
+
+	// Initialize: make the default STAGE plot appear immediately on load
+	makeRows(MIN_ROWS);
+	applyMode("stage"); // sets height, note, anchors, and draws axes immediately
+})();
+</script>
+</body>
+</html>
