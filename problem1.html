@@ -81,6 +81,7 @@
 	];
 	const PROB_TICKS=[99.5,99,95,90,75,50,25,10,5,1,0.5,0.1];
 	const MINOR_PROB_TICKS=[4,3,2];
+	const TOP_MINOR_PROB_TICKS=[0.2];
 	const Y_MAX=40;
 	const canvas=document.getElementById("plot");
 	const ctx=canvas.getContext("2d");
@@ -145,6 +146,7 @@
 		}
 		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;
 		for(const p of MINOR_PROB_TICKS){const x=probCanvas(p);ctx.beginPath();ctx.moveTo(x,B);ctx.lineTo(x,B+8);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-8);ctx.stroke();}
+		for(const p of TOP_MINOR_PROB_TICKS){const x=probCanvas(p);ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-8);ctx.stroke();}
 		ctx.textAlign="right";ctx.textBaseline="middle";
 		for(let v=0;v<=Y_MAX;v+=5){
 			const y=yToCanvas(v);
