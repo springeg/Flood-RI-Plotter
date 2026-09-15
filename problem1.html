@@ -1,36 +1,38 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Flood Probability Plotter - Problem 1</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Flood Probability Plotter — Problem 1</title>
 <style>
-:root{--ink:#222;--grid:#9a9a9a;--btn:#efefef;--btnb:#666}
-body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:white}
-.page{max-width:1100px;margin:18px auto 26px;padding:0 14px}
-h1{margin:4px 0 10px;font-size:38px;font-weight:700}
-.plotWrap{display:flex;justify-content:center}
-canvas{background:white;width:min(980px,96vw);height:auto;touch-action:none}
-.controls{margin:8px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.controls .spacer{flex:1 1 auto}
-.btn{font:18px Arial,Helvetica,sans-serif;padding:6px 18px;background:var(--btn);border:2px solid var(--btnb);cursor:pointer;box-shadow:1px 1px 0 rgba(0,0,0,.12)}
-.btn:active{transform:translateY(1px);box-shadow:none}
-.msg{margin-left:8px;font-size:16px;color:#b00020;min-height:20px}
-table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:16px}
-th,td{border:2px solid #333;padding:0}
-th{background:#f0f0f0;text-align:left;padding:8px 10px;font-size:18px}
-td input{width:100%;box-sizing:border-box;border:0;padding:8px 10px;font:16px Arial,Helvetica,sans-serif;background:white}
-td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
-.smallNote{font-size:14px;color:#444;margin-top:8px}
-.footer{margin-top:12px;font-size:14px;color:#333;text-align:left}
-@media print{
-	.page{max-width:none;margin:0;padding:0}
-	.controls,.msg{display:none!important}
-	.smallNote{display:none!important}
-	h1{margin:0 0 8px}
-	canvas{width:100%!important;height:auto!important}
-	table,th,td input{font-size:12px}
-}
+	:root{--ink:#222;--grid:#9a9a9a;--btn:#efefef;--btnb:#666;}
+	body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:white;}
+	.page{max-width:1100px;margin:18px auto 26px auto;padding:0 14px;}
+	h1{margin:4px 0 10px 0;font-size:38px;font-weight:700;}
+	.plotWrap{display:flex;justify-content:center;}
+	canvas{background:white;border:0;width:min(980px,96vw);height:auto;touch-action:none;}
+	.controls{margin:8px 0 10px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+	.controls .spacer{flex:1 1 auto;}
+	.btn{font-family:Arial,Helvetica,sans-serif;font-size:18px;padding:6px 18px;background:var(--btn);border:2px solid var(--btnb);cursor:pointer;box-shadow:1px 1px 0 rgba(0,0,0,.12);}
+	.btn:active{transform:translateY(1px);box-shadow:none;}
+	.msg{margin-left:8px;font-size:16px;color:#b00020;min-height:20px;}
+	table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:16px;}
+	th,td{border:2px solid #333;padding:0;}
+	th{background:#f0f0f0;text-align:left;padding:8px 10px;font-size:18px;}
+	td input{width:100%;box-sizing:border-box;border:none;padding:8px 10px;font-size:16px;font-family:Arial,Helvetica,sans-serif;background:white;}
+	td input:focus{outline:2px solid #4a90e2;outline-offset:-2px;}
+	.smallNote{font-size:14px;color:#444;margin-top:8px;}
+	.footer{margin-top:12px;font-size:14px;color:#333;text-align:left;}
+	@media print{
+		.page{max-width:none;margin:0;padding:0;}
+		.controls,.msg{display:none!important;}
+		.smallNote{display:none!important;}
+		h1{margin:0 0 8px 0;}
+		canvas{width:100%!important;height:auto!important;}
+		table{font-size:12px;}
+		th{font-size:12px;}
+		td input{font-size:12px;}
+	}
 </style>
 </head>
 <body>
@@ -38,7 +40,7 @@ td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
 	<h1>Flood Probability Plotter — Problem 1</h1>
 
 	<div class="plotWrap">
-		<canvas id="plot" width="980" height="620" aria-label="Flood probability plot"></canvas>
+		<canvas id="plot" width="980" height="620" aria-label="Probability plot"></canvas>
 	</div>
 
 	<div class="controls">
@@ -65,7 +67,7 @@ td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
 	</table>
 
 	<div class="smallNote">
-		Complete the table, then click Plot. The plot uses Stage (feet) and Probability (%). Probability is exceedance probability.
+		Complete the table, then click Plot. Drag the green circles to adjust the blue trend line. Drag from the top or right plot border to create movable guide lines.
 	</div>
 	<div class="footer">Made by Dr. G.S. Springer and ChatGPT</div>
 </div>
@@ -74,7 +76,7 @@ td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
 (() => {
 	"use strict";
 
-	const initialRows = [
+	const INITIAL_ROWS = [
 		["2017","19","1219","6","60","1.67"],
 		["2018","22","","","",""],
 		["2019","23.1","","","",""],
@@ -86,21 +88,36 @@ td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
 		["2025","21","","","",""]
 	];
 
-	const PROB_TICKS = [99.5,99,95,90,75,50,25,10,5,1,0.5,0.1];
-	const canvas = document.getElementById("plot");
-	const ctx = canvas.getContext("2d");
-	const tbody = document.getElementById("tbody");
-	const msg = document.getElementById("msg");
-	const G = {left:120,right:40,top:85,bottom:110};
-	let points = [];
+	const PROB_TICKS=[99.5,99,95,90,75,50,25,10,5,1,0.5,0.1];
+	const MINOR_PROB_TICKS=[4,3,2];
+	const canvas=document.getElementById("plot");
+	const ctx=canvas.getContext("2d");
+	const tbody=document.getElementById("tbody");
+	const msg=document.getElementById("msg");
+	const plotBtn=document.getElementById("plotBtn");
+	const clearBtn=document.getElementById("clearBtn");
+	const resetBtn=document.getElementById("resetBtn");
+	const printBtn=document.getElementById("printBtn");
+
+	const G={left:120,right:40,top:150,bottom:120};
+	let dataPoints=[];
+	let yMax=40;
+	let anchors={a:{x:0,y:0},b:{x:0,y:0}};
+	let dragging=null;
+	let guideH={active:false,y:0,dragging:false,pointerId:null};
+	let guideV={active:false,x:0,dragging:false,pointerId:null};
+
+	function setMessage(s){msg.textContent=s||"";}
+	function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+	function bounds(){return {L:G.left,R:canvas.width-G.right,T:G.top,B:canvas.height-G.bottom};}
 
 	function normInv(p){
-		if(!(p>0&&p<1)) return NaN;
+		if(!(p>0&&p<1))return NaN;
 		const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239];
 		const b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572];
 		const c=[-.007784894002430293,-.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783];
 		const d=[.007784695709041462,.3224671290700398,2.445134137142996,3.754408661907416];
-		const pl=.02425, ph=1-pl; let q,r;
+		const pl=.02425,ph=1-pl;let q,r;
 		if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
 		if(p>ph){q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
 		q=p-.5;r=q*q;
@@ -108,83 +125,143 @@ td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
 	}
 
 	function probToZ(pct){return normInv(1-pct/100);}
-	function xCanvas(pct){
-		const z=probToZ(pct), z0=probToZ(PROB_TICKS[0]), z1=probToZ(PROB_TICKS[PROB_TICKS.length-1]);
-		return G.left+(z-z0)/(z1-z0)*(canvas.width-G.right-G.left);
+	function xToCanvas(z){
+		const {L,R}=bounds(),z0=probToZ(PROB_TICKS[0]),z1=probToZ(PROB_TICKS[PROB_TICKS.length-1]);
+		return L+(z-z0)/(z1-z0)*(R-L);
 	}
-	function niceMax(v){
-		if(!isFinite(v)||v<=0) return 40;
-		const target=v*1.15, mag=Math.pow(10,Math.floor(Math.log10(target))), n=target/mag;
-		return (n<=1?1:n<=2?2:n<=5?5:10)*mag;
+	function probCanvas(p){return xToCanvas(probToZ(p));}
+	function yToCanvas(v){const {T,B}=bounds();return B-(v/yMax)*(B-T);}
+	function canvasToY(y){const {T,B}=bounds();return (B-y)/(B-T)*yMax;}
+
+	function niceStep(v){
+		const p=Math.pow(10,Math.floor(Math.log10(v))),n=v/p;
+		if(n<=1)return p;if(n<=2)return 2*p;if(n<=5)return 5*p;return 10*p;
 	}
-	function yCanvas(v,yMax){
-		const top=G.top,bottom=canvas.height-G.bottom;
-		return bottom-(v/yMax)*(bottom-top);
+	function computeYMax(){
+		let m=0;for(const pt of dataPoints)m=Math.max(m,pt.y);
+		if(m<=0)return 40;
+		const raw=Math.max(Math.ceil(m*1.65),5),step=niceStep(raw/8);
+		return Math.ceil(raw/step)*step;
+	}
+	function yTicks(){
+		const step=niceStep(yMax/8),out=[];
+		for(let v=0;v<=yMax+1e-9;v+=step)out.push(Math.round(v*1000)/1000);
+		if(Math.abs(out[out.length-1]-yMax)>1e-6)out.push(yMax);
+		return out;
+	}
+	function minorYTicks(major){
+		if(major.length<2)return[];
+		const s=(major[1]-major[0])/5,out=[];
+		for(let v=0;v<=yMax+1e-9;v+=s){if(!major.some(m=>Math.abs(m-v)<1e-6))out.push(v);}
+		return out;
+	}
+	function formatRI(ri){return ri<10?ri.toFixed(2).replace(/0+$/,"").replace(/\.$/,""):String(Math.round(ri));}
+	function formatPct(p){return Math.abs(p-Math.round(p))<1e-9?String(Math.round(p)):String(p);}
+
+	function labelBg(text,x,y,align,baseline){
+		ctx.save();ctx.font="20px Arial";ctx.textAlign=align;ctx.textBaseline=baseline;
+		const w=ctx.measureText(text).width,h=20,pad=4;
+		let left=align==="center"?x-w/2:align==="right"?x-w:x;
+		let top=baseline==="top"?y:baseline==="middle"?y-h/2:y-h;
+		ctx.fillStyle="white";ctx.fillRect(left-pad,top-2,w+2*pad,h+4);
+		ctx.fillStyle="#222";ctx.fillText(text,x,y);ctx.restore();
 	}
 
-	function renderRows(rows){
-		tbody.innerHTML="";
-		rows.forEach((row,r)=>{
-			const tr=document.createElement("tr");
-			row.forEach((val,c)=>{
-				const td=document.createElement("td"), input=document.createElement("input");
-				input.type=(c===0)?"text":"number";
-				input.value=val;
-				if(c!==0) input.step="any";
-				input.dataset.col=c; input.dataset.row=r;
-				td.appendChild(input); tr.appendChild(td);
-			});
-			tbody.appendChild(tr);
-		});
+	function defaultAnchors(){const {L,R,T,B}=bounds();anchors.a={x:L,y:B};anchors.b={x:R,y:T};}
+	function nearestBorderPoint(x,y){
+		const {L,R,T,B}=bounds(),cx=clamp(x,L,R),cy=clamp(y,T,B);
+		const ds=[{d:Math.abs(cx-L),p:{x:L,y:cy}},{d:Math.abs(R-cx),p:{x:R,y:cy}},{d:Math.abs(cy-T),p:{x:cx,y:T}},{d:Math.abs(B-cy),p:{x:cx,y:B}}];
+		ds.sort((a,b)=>a.d-b.d);return ds[0].p;
 	}
+	function anchorHit(x,y){for(const k of ["a","b"]){const dx=x-anchors[k].x,dy=y-anchors[k].y;if(dx*dx+dy*dy<=144)return k;}return null;}
 
-	function getRows(){return [...tbody.querySelectorAll("tr")].map(tr=>[...tr.querySelectorAll("input")].map(i=>i.value));}
-
-	function drawAxes(yMax){
-		ctx.clearRect(0,0,canvas.width,canvas.height);
-		ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
-		const L=G.left,R=canvas.width-G.right,T=G.top,B=canvas.height-G.bottom;
-		ctx.strokeStyle="#222";ctx.lineWidth=2;ctx.strokeRect(L,T,R-L,B-T);
-		ctx.font="15px Arial";ctx.fillStyle="#222";ctx.textAlign="center";ctx.textBaseline="top";
-		PROB_TICKS.forEach(p=>{
-			const x=xCanvas(p);
-			ctx.strokeStyle="#aaa";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke();
-			ctx.fillStyle="#222";ctx.fillText(String(p),x,B+10);
-		});
-		const nTicks=8;
-		ctx.textAlign="right";ctx.textBaseline="middle";
-		for(let i=0;i<=nTicks;i++){
-			const val=yMax*i/nTicks, y=yCanvas(val,yMax);
-			ctx.strokeStyle="#aaa";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke();
-			ctx.fillStyle="#222";ctx.fillText((Math.round(val*10)/10).toString(),L-10,y);
+	function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);drawTitles();drawAxes();drawPoints();drawTrend();drawGuides();}
+	function drawTitles(){
+		ctx.save();ctx.fillStyle="#222";ctx.textAlign="center";
+		ctx.font="42px Arial";ctx.fillText("Recurrence Interval (years)",canvas.width/2,54);
+		ctx.font="40px Arial";ctx.fillText("Probability (%)",canvas.width/2,canvas.height-40);
+		ctx.translate(42,canvas.height/2);ctx.rotate(-Math.PI/2);ctx.font="38px Arial";ctx.fillText("stage (feet)",0,0);ctx.restore();
+	}
+	function drawAxes(){
+		const {L,R,T,B}=bounds();ctx.save();
+		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=4;ctx.strokeRect(L,T,R-L,B-T);
+		ctx.font="20px Arial";ctx.textAlign="center";ctx.textBaseline="top";
+		for(const p of PROB_TICKS){
+			const x=probCanvas(p);ctx.strokeStyle="#7f7f7f";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke();
+			ctx.strokeStyle="#2a2a2a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,B);ctx.lineTo(x,B+12);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-12);ctx.stroke();
+			labelBg(formatPct(p),x,B+16,"center","top");labelBg(formatRI(100/p),x,T-26,"center","bottom");
 		}
-		ctx.textAlign="center";ctx.textBaseline="top";ctx.font="18px Arial";
-		ctx.fillText("exceedance probability (%)",(L+R)/2,B+48);
-		ctx.save();ctx.translate(35,(T+B)/2);ctx.rotate(-Math.PI/2);ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("stage (feet)",0,0);ctx.restore();
+		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;
+		for(const p of MINOR_PROB_TICKS){const x=probCanvas(p);ctx.beginPath();ctx.moveTo(x,B);ctx.lineTo(x,B+8);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-8);ctx.stroke();}
+		const majors=yTicks();ctx.textAlign="right";ctx.textBaseline="middle";
+		for(const v of majors){const y=yToCanvas(v);if(v<yMax-1e-6){ctx.strokeStyle="#7f7f7f";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke();ctx.strokeStyle="#2a2a2a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(L-12,y);ctx.lineTo(L,y);ctx.stroke();ctx.beginPath();ctx.moveTo(R,y);ctx.lineTo(R+12,y);ctx.stroke();}ctx.fillStyle="#222";ctx.font="24px Arial";ctx.fillText(String(v),L-18,y);}
+		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;for(const v of minorYTicks(majors)){const y=yToCanvas(v);ctx.beginPath();ctx.moveTo(L-7,y);ctx.lineTo(L,y);ctx.stroke();ctx.beginPath();ctx.moveTo(R,y);ctx.lineTo(R+7,y);ctx.stroke();}
+		ctx.restore();
+	}
+	function drawPoints(){
+		if(!dataPoints.length)return;const r=clamp(7-2.2*Math.log10(Math.max(dataPoints.length,1)),1.2,6);ctx.save();ctx.lineWidth=2;
+		for(const pt of dataPoints){const x=probCanvas(pt.p),y=yToCanvas(pt.y);ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle="#12a4d9";ctx.fill();ctx.strokeStyle="#1b1b1b";ctx.stroke();}ctx.restore();
+	}
+	function drawTrend(){
+		ctx.save();ctx.strokeStyle="#2e4fa2";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(anchors.a.x,anchors.a.y);ctx.lineTo(anchors.b.x,anchors.b.y);ctx.stroke();
+		for(const k of ["a","b"]){ctx.beginPath();ctx.arc(anchors[k].x,anchors[k].y,8,0,2*Math.PI);ctx.fillStyle="#21b14c";ctx.fill();ctx.lineWidth=3;ctx.strokeStyle="#1b1b1b";ctx.stroke();}ctx.restore();
+	}
+	function drawGuides(){
+		const {L,R,T,B}=bounds();ctx.save();ctx.strokeStyle="#111";ctx.lineWidth=1;
+		if(guideH.active){const y=clamp(guideH.y,T,B);ctx.beginPath();ctx.moveTo(L-8,y);ctx.lineTo(R+8,y);ctx.stroke();}
+		if(guideV.active){const x=clamp(guideV.x,L,R);ctx.beginPath();ctx.moveTo(x,T-8);ctx.lineTo(x,B+8);ctx.stroke();}
+		ctx.restore();
 	}
 
-	function draw(){
-		const rows=getRows(); points=[]; let invalid=false;
-		rows.forEach(row=>{
-			const stage=parseFloat(row[1]), prob=parseFloat(row[4]);
-			if(row[1]!==""||row[4]!==""){
-				if(isFinite(stage)&&isFinite(prob)&&prob>0&&prob<100) points.push({stage,prob});
-				else if(row[4]!==""&&!(isFinite(prob)&&prob>0&&prob<100)) invalid=true;
-			}
-		});
-		if(points.length===0){drawAxes(40);msg.textContent="Enter valid Stage and Probability values before plotting.";return;}
-		const yMax=niceMax(Math.max(...points.map(d=>d.stage))); drawAxes(yMax);
-		ctx.fillStyle="#000";
-		points.forEach(d=>{const x=xCanvas(d.prob),y=yCanvas(d.stage,yMax);ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();});
-		msg.textContent=invalid?"Some rows with invalid probability values were ignored. Probability must be between 0 and 100.":"";
+	function renderTable(){
+		tbody.innerHTML="";INITIAL_ROWS.forEach(row=>{const tr=document.createElement("tr");["year","stage","wse","rank","prob","ri"].forEach((col,i)=>{const td=document.createElement("td"),inp=document.createElement("input");inp.type="text";inp.inputMode="decimal";inp.autocomplete="off";inp.spellcheck=false;inp.dataset.col=col;inp.value=row[i];td.appendChild(inp);tr.appendChild(td);});tbody.appendChild(tr);});
+	}
+	function parseTable(){
+		const pts=[];let has=false;
+		for(const r of tbody.querySelectorAll("tr")){
+			const s=r.querySelector('input[data-col="stage"]').value.trim(),p=r.querySelector('input[data-col="prob"]').value.trim();
+			if(s===""&&p==="")continue;
+			if(s===""||p==="")continue;
+			const stage=Number(s),prob=Number(p);
+			if(!Number.isFinite(stage)||!Number.isFinite(prob))return{ok:false,err:"Stage and Probability must be numeric."};
+			if(stage<0)return{ok:false,err:"Stage values must be 0 or higher."};
+			if(prob<=0||prob>=100)return{ok:false,err:"Probability values must be between 0 and 100 percent."};
+			has=true;pts.push({p:prob,y:stage});
+		}
+		if(!has)return{ok:false,err:"Complete the Probability column, then click Plot."};
+		return{ok:true,pts};
 	}
 
-	function reset(){renderRows(initialRows);points=[];msg.textContent="";drawAxes(40);}
-	document.getElementById("plotBtn").addEventListener("click",draw);
-	document.getElementById("clearBtn").addEventListener("click",()=>{points=[];msg.textContent="";drawAxes(40);});
-	document.getElementById("resetBtn").addEventListener("click",reset);
-	document.getElementById("printBtn").addEventListener("click",()=>window.print());
-	reset();
+	function pointerPos(evt){const r=canvas.getBoundingClientRect();return{x:(evt.clientX-r.left)*(canvas.width/r.width),y:(evt.clientY-r.top)*(canvas.height/r.height)};}
+	function capture(evt){try{canvas.setPointerCapture(evt.pointerId);}catch(e){}}
+	function release(evt){try{canvas.releasePointerCapture(evt.pointerId);}catch(e){}}
+
+	canvas.addEventListener("pointerdown",evt=>{
+		const {x,y}=pointerPos(evt),{L,R,T,B}=bounds();
+		const a=anchorHit(x,y);if(a){dragging=a;capture(evt);return;}
+		if(guideH.active&&Math.abs(y-guideH.y)<=8&&x>=L&&x<=R){guideH.dragging=true;guideH.pointerId=evt.pointerId;capture(evt);return;}
+		if(guideV.active&&Math.abs(x-guideV.x)<=8&&y>=T&&y<=B){guideV.dragging=true;guideV.pointerId=evt.pointerId;capture(evt);return;}
+		if(x>=L&&x<=R&&y>=T-18&&y<=T+12){guideH.active=true;guideH.dragging=true;guideH.pointerId=evt.pointerId;guideH.y=clamp(y,T,B);capture(evt);draw();return;}
+		if(y>=T&&y<=B&&x>=R-12&&x<=R+18){guideV.active=true;guideV.dragging=true;guideV.pointerId=evt.pointerId;guideV.x=clamp(x,L,R);capture(evt);draw();return;}
+	});
+	canvas.addEventListener("pointermove",evt=>{
+		const {x,y}=pointerPos(evt),{L,R,T,B}=bounds();
+		if(dragging){anchors[dragging]=nearestBorderPoint(x,y);draw();return;}
+		if(guideH.dragging&&evt.pointerId===guideH.pointerId){guideH.y=clamp(y,T,B);draw();return;}
+		if(guideV.dragging&&evt.pointerId===guideV.pointerId){guideV.x=clamp(x,L,R);draw();return;}
+	});
+	canvas.addEventListener("pointerup",evt=>{dragging=null;if(guideH.pointerId===evt.pointerId){guideH.dragging=false;guideH.pointerId=null;}if(guideV.pointerId===evt.pointerId){guideV.dragging=false;guideV.pointerId=null;}release(evt);draw();});
+	canvas.addEventListener("pointercancel",evt=>{dragging=null;guideH.dragging=false;guideV.dragging=false;guideH.pointerId=null;guideV.pointerId=null;release(evt);});
+
+	plotBtn.addEventListener("click",()=>{
+		setMessage("");const parsed=parseTable();if(!parsed.ok){setMessage(parsed.err);return;}
+		dataPoints=parsed.pts.slice();yMax=computeYMax();const {L,R,B}=bounds();anchors.a=nearestBorderPoint(L,B);anchors.b=nearestBorderPoint(R,yToCanvas(yMax*.92));guideH.active=false;guideV.active=false;draw();
+	});
+	clearBtn.addEventListener("click",()=>{setMessage("");dataPoints=[];yMax=40;defaultAnchors();guideH={active:false,y:0,dragging:false,pointerId:null};guideV={active:false,x:0,dragging:false,pointerId:null};draw();});
+	resetBtn.addEventListener("click",()=>{setMessage("");renderTable();dataPoints=[];yMax=40;defaultAnchors();guideH={active:false,y:0,dragging:false,pointerId:null};guideV={active:false,x:0,dragging:false,pointerId:null};draw();});
+	printBtn.addEventListener("click",()=>{draw();window.print();});
+
+	renderTable();defaultAnchors();draw();
 })();
 </script>
 </body>
