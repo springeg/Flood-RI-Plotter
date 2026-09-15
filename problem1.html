@@ -38,11 +38,9 @@
 <body>
 <div class="page">
 	<h1>Flood Probability Plotter — Problem 1</h1>
-
 	<div class="plotWrap">
 		<canvas id="plot" width="980" height="620" aria-label="Probability plot"></canvas>
 	</div>
-
 	<div class="controls">
 		<div class="spacer"></div>
 		<button class="btn" id="plotBtn" type="button">Plot</button>
@@ -51,7 +49,6 @@
 		<button class="btn" id="printBtn" type="button">Print/PDF</button>
 	</div>
 	<div class="msg" id="msg"></div>
-
 	<table id="dataTable">
 		<thead>
 			<tr>
@@ -65,18 +62,13 @@
 		</thead>
 		<tbody id="tbody"></tbody>
 	</table>
-
-	<div class="smallNote">
-		Complete the table, then click Plot. Drag the green circles to adjust the blue trend line. Drag from the top or right plot border to create movable guide lines.
-	</div>
+	<div class="smallNote">Complete the table, then click Plot. Drag the green circles to adjust the blue trend line. Drag from the top or right plot border to create movable guide lines.</div>
 	<div class="footer">Made by Dr. G.S. Springer and ChatGPT</div>
 </div>
-
 <script>
 (() => {
 	"use strict";
-
-	const INITIAL_ROWS = [
+	const INITIAL_ROWS=[
 		["2017","19","1219","6","60","1.67"],
 		["2018","22","","","",""],
 		["2019","23.1","","","",""],
@@ -87,30 +79,22 @@
 		["2024","16.8","","","",""],
 		["2025","21","","","",""]
 	];
-
 	const PROB_TICKS=[99.5,99,95,90,75,50,25,10,5,1,0.5,0.1];
 	const MINOR_PROB_TICKS=[4,3,2];
+	const Y_MAX=40;
 	const canvas=document.getElementById("plot");
 	const ctx=canvas.getContext("2d");
 	const tbody=document.getElementById("tbody");
 	const msg=document.getElementById("msg");
-	const plotBtn=document.getElementById("plotBtn");
-	const clearBtn=document.getElementById("clearBtn");
-	const resetBtn=document.getElementById("resetBtn");
-	const printBtn=document.getElementById("printBtn");
-
 	const G={left:120,right:40,top:150,bottom:120};
 	let dataPoints=[];
-	let yMax=40;
 	let anchors={a:{x:0,y:0},b:{x:0,y:0}};
 	let dragging=null;
 	let guideH={active:false,y:0,dragging:false,pointerId:null};
 	let guideV={active:false,x:0,dragging:false,pointerId:null};
-
 	function setMessage(s){msg.textContent=s||"";}
 	function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
 	function bounds(){return {L:G.left,R:canvas.width-G.right,T:G.top,B:canvas.height-G.bottom};}
-
 	function normInv(p){
 		if(!(p>0&&p<1))return NaN;
 		const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239];
@@ -123,41 +107,18 @@
 		q=p-.5;r=q*q;
 		return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
 	}
-
 	function probToZ(pct){return normInv(1-pct/100);}
-	function xToCanvas(z){
-		const {L,R}=bounds(),z0=probToZ(PROB_TICKS[0]),z1=probToZ(PROB_TICKS[PROB_TICKS.length-1]);
-		return L+(z-z0)/(z1-z0)*(R-L);
+	function probCanvas(p){const {L,R}=bounds(),z=probToZ(p),z0=probToZ(PROB_TICKS[0]),z1=probToZ(PROB_TICKS[PROB_TICKS.length-1]);return L+(z-z0)/(z1-z0)*(R-L);}
+	function yToCanvas(v){const {T,B}=bounds();return B-(v/Y_MAX)*(B-T);}
+	function defaultAnchors(){const {L,R,T,B}=bounds();anchors.a={x:L,y:B};anchors.b={x:R,y:T};}
+	function nearestBorderPoint(x,y){
+		const {L,R,T,B}=bounds(),cx=clamp(x,L,R),cy=clamp(y,T,B);
+		const ds=[{d:Math.abs(cx-L),p:{x:L,y:cy}},{d:Math.abs(R-cx),p:{x:R,y:cy}},{d:Math.abs(cy-T),p:{x:cx,y:T}},{d:Math.abs(B-cy),p:{x:cx,y:B}}];
+		ds.sort((a,b)=>a.d-b.d);return ds[0].p;
 	}
-	function probCanvas(p){return xToCanvas(probToZ(p));}
-	function yToCanvas(v){const {T,B}=bounds();return B-(v/yMax)*(B-T);}
-	function canvasToY(y){const {T,B}=bounds();return (B-y)/(B-T)*yMax;}
-
-	function niceStep(v){
-		const p=Math.pow(10,Math.floor(Math.log10(v))),n=v/p;
-		if(n<=1)return p;if(n<=2)return 2*p;if(n<=5)return 5*p;return 10*p;
-	}
-	function computeYMax(){
-		let m=0;for(const pt of dataPoints)m=Math.max(m,pt.y);
-		if(m<=0)return 40;
-		const raw=Math.max(Math.ceil(m*1.65),5),step=niceStep(raw/8);
-		return Math.ceil(raw/step)*step;
-	}
-	function yTicks(){
-		const step=niceStep(yMax/8),out=[];
-		for(let v=0;v<=yMax+1e-9;v+=step)out.push(Math.round(v*1000)/1000);
-		if(Math.abs(out[out.length-1]-yMax)>1e-6)out.push(yMax);
-		return out;
-	}
-	function minorYTicks(major){
-		if(major.length<2)return[];
-		const s=(major[1]-major[0])/5,out=[];
-		for(let v=0;v<=yMax+1e-9;v+=s){if(!major.some(m=>Math.abs(m-v)<1e-6))out.push(v);}
-		return out;
-	}
+	function anchorHit(x,y){for(const k of ["a","b"]){const dx=x-anchors[k].x,dy=y-anchors[k].y;if(dx*dx+dy*dy<=144)return k;}return null;}
 	function formatRI(ri){return ri<10?ri.toFixed(2).replace(/0+$/,"").replace(/\.$/,""):String(Math.round(ri));}
 	function formatPct(p){return Math.abs(p-Math.round(p))<1e-9?String(Math.round(p)):String(p);}
-
 	function labelBg(text,x,y,align,baseline){
 		ctx.save();ctx.font="20px Arial";ctx.textAlign=align;ctx.textBaseline=baseline;
 		const w=ctx.measureText(text).width,h=20,pad=4;
@@ -166,15 +127,6 @@
 		ctx.fillStyle="white";ctx.fillRect(left-pad,top-2,w+2*pad,h+4);
 		ctx.fillStyle="#222";ctx.fillText(text,x,y);ctx.restore();
 	}
-
-	function defaultAnchors(){const {L,R,T,B}=bounds();anchors.a={x:L,y:B};anchors.b={x:R,y:T};}
-	function nearestBorderPoint(x,y){
-		const {L,R,T,B}=bounds(),cx=clamp(x,L,R),cy=clamp(y,T,B);
-		const ds=[{d:Math.abs(cx-L),p:{x:L,y:cy}},{d:Math.abs(R-cx),p:{x:R,y:cy}},{d:Math.abs(cy-T),p:{x:cx,y:T}},{d:Math.abs(B-cy),p:{x:cx,y:B}}];
-		ds.sort((a,b)=>a.d-b.d);return ds[0].p;
-	}
-	function anchorHit(x,y){for(const k of ["a","b"]){const dx=x-anchors[k].x,dy=y-anchors[k].y;if(dx*dx+dy*dy<=144)return k;}return null;}
-
 	function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);drawTitles();drawAxes();drawPoints();drawTrend();drawGuides();}
 	function drawTitles(){
 		ctx.save();ctx.fillStyle="#222";ctx.textAlign="center";
@@ -193,9 +145,15 @@
 		}
 		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;
 		for(const p of MINOR_PROB_TICKS){const x=probCanvas(p);ctx.beginPath();ctx.moveTo(x,B);ctx.lineTo(x,B+8);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-8);ctx.stroke();}
-		const majors=yTicks();ctx.textAlign="right";ctx.textBaseline="middle";
-		for(const v of majors){const y=yToCanvas(v);if(v<yMax-1e-6){ctx.strokeStyle="#7f7f7f";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke();ctx.strokeStyle="#2a2a2a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(L-12,y);ctx.lineTo(L,y);ctx.stroke();ctx.beginPath();ctx.moveTo(R,y);ctx.lineTo(R+12,y);ctx.stroke();}ctx.fillStyle="#222";ctx.font="24px Arial";ctx.fillText(String(v),L-18,y);}
-		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;for(const v of minorYTicks(majors)){const y=yToCanvas(v);ctx.beginPath();ctx.moveTo(L-7,y);ctx.lineTo(L,y);ctx.stroke();ctx.beginPath();ctx.moveTo(R,y);ctx.lineTo(R+7,y);ctx.stroke();}
+		ctx.textAlign="right";ctx.textBaseline="middle";
+		for(let v=0;v<=Y_MAX;v+=5){
+			const y=yToCanvas(v);
+			if(v<Y_MAX){ctx.strokeStyle="#7f7f7f";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke();}
+			ctx.strokeStyle="#2a2a2a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(L-12,y);ctx.lineTo(L,y);ctx.stroke();ctx.beginPath();ctx.moveTo(R,y);ctx.lineTo(R+12,y);ctx.stroke();
+			ctx.fillStyle="#222";ctx.font="24px Arial";ctx.fillText(String(v),L-18,y);
+		}
+		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;
+		for(let v=1;v<Y_MAX;v+=1){if(v%5===0)continue;const y=yToCanvas(v);ctx.beginPath();ctx.moveTo(L-7,y);ctx.lineTo(L,y);ctx.stroke();ctx.beginPath();ctx.moveTo(R,y);ctx.lineTo(R+7,y);ctx.stroke();}
 		ctx.restore();
 	}
 	function drawPoints(){
@@ -204,7 +162,8 @@
 	}
 	function drawTrend(){
 		ctx.save();ctx.strokeStyle="#2e4fa2";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(anchors.a.x,anchors.a.y);ctx.lineTo(anchors.b.x,anchors.b.y);ctx.stroke();
-		for(const k of ["a","b"]){ctx.beginPath();ctx.arc(anchors[k].x,anchors[k].y,8,0,2*Math.PI);ctx.fillStyle="#21b14c";ctx.fill();ctx.lineWidth=3;ctx.strokeStyle="#1b1b1b";ctx.stroke();}ctx.restore();
+		for(const k of ["a","b"]){ctx.beginPath();ctx.arc(anchors[k].x,anchors[k].y,8,0,2*Math.PI);ctx.fillStyle="#21b14c";ctx.fill();ctx.lineWidth=3;ctx.strokeStyle="#1b1b1b";ctx.stroke();}
+		ctx.restore();
 	}
 	function drawGuides(){
 		const {L,R,T,B}=bounds();ctx.save();ctx.strokeStyle="#111";ctx.lineWidth=1;
@@ -212,37 +171,32 @@
 		if(guideV.active){const x=clamp(guideV.x,L,R);ctx.beginPath();ctx.moveTo(x,T-8);ctx.lineTo(x,B+8);ctx.stroke();}
 		ctx.restore();
 	}
-
-	function renderTable(){
-		tbody.innerHTML="";INITIAL_ROWS.forEach(row=>{const tr=document.createElement("tr");["year","stage","wse","rank","prob","ri"].forEach((col,i)=>{const td=document.createElement("td"),inp=document.createElement("input");inp.type="text";inp.inputMode="decimal";inp.autocomplete="off";inp.spellcheck=false;inp.dataset.col=col;inp.value=row[i];td.appendChild(inp);tr.appendChild(td);});tbody.appendChild(tr);});
+	function renderRows(rows){
+		tbody.innerHTML="";
+		const cols=["year","stage","wse","rank","prob","ri"];
+		rows.forEach(row=>{const tr=document.createElement("tr");row.forEach((val,i)=>{const td=document.createElement("td"),inp=document.createElement("input");inp.type="text";inp.inputMode="decimal";inp.autocomplete="off";inp.spellcheck=false;inp.dataset.col=cols[i];inp.value=val;td.appendChild(inp);tr.appendChild(td);});tbody.appendChild(tr);});
 	}
-	function parseTable(){
+	function parseData(){
 		const pts=[];let has=false;
 		for(const r of tbody.querySelectorAll("tr")){
-			const s=r.querySelector('input[data-col="stage"]').value.trim(),p=r.querySelector('input[data-col="prob"]').value.trim();
-			if(s===""&&p==="")continue;
+			const s=r.querySelector('input[data-col="stage"]').value.trim();
+			const p=r.querySelector('input[data-col="prob"]').value.trim();
 			if(s===""||p==="")continue;
 			const stage=Number(s),prob=Number(p);
-			if(!Number.isFinite(stage)||!Number.isFinite(prob))return{ok:false,err:"Stage and Probability must be numeric."};
-			if(stage<0)return{ok:false,err:"Stage values must be 0 or higher."};
-			if(prob<=0||prob>=100)return{ok:false,err:"Probability values must be between 0 and 100 percent."};
+			if(!Number.isFinite(stage)||!Number.isFinite(prob))return {ok:false,err:"Stage and Probability must be numeric."};
+			if(stage<0||stage>Y_MAX)return {ok:false,err:"Stage values must be between 0 and 40 feet."};
+			if(prob<=0||prob>=100)return {ok:false,err:"Probability values must be between 0 and 100 percent."};
 			has=true;pts.push({p:prob,y:stage});
 		}
-		if(!has)return{ok:false,err:"Complete the Probability column, then click Plot."};
-		return{ok:true,pts};
+		if(!has)return {ok:false,err:"Enter Probability values for the rows you want to plot, then click Plot."};
+		return {ok:true,pts};
 	}
-
-	function pointerPos(evt){const r=canvas.getBoundingClientRect();return{x:(evt.clientX-r.left)*(canvas.width/r.width),y:(evt.clientY-r.top)*(canvas.height/r.height)};}
-	function capture(evt){try{canvas.setPointerCapture(evt.pointerId);}catch(e){}}
-	function release(evt){try{canvas.releasePointerCapture(evt.pointerId);}catch(e){}}
-
+	function pointerPos(evt){const rect=canvas.getBoundingClientRect();return {x:(evt.clientX-rect.left)*(canvas.width/rect.width),y:(evt.clientY-rect.top)*(canvas.height/rect.height)};}
 	canvas.addEventListener("pointerdown",evt=>{
-		const {x,y}=pointerPos(evt),{L,R,T,B}=bounds();
-		const a=anchorHit(x,y);if(a){dragging=a;capture(evt);return;}
-		if(guideH.active&&Math.abs(y-guideH.y)<=8&&x>=L&&x<=R){guideH.dragging=true;guideH.pointerId=evt.pointerId;capture(evt);return;}
-		if(guideV.active&&Math.abs(x-guideV.x)<=8&&y>=T&&y<=B){guideV.dragging=true;guideV.pointerId=evt.pointerId;capture(evt);return;}
-		if(x>=L&&x<=R&&y>=T-18&&y<=T+12){guideH.active=true;guideH.dragging=true;guideH.pointerId=evt.pointerId;guideH.y=clamp(y,T,B);capture(evt);draw();return;}
-		if(y>=T&&y<=B&&x>=R-12&&x<=R+18){guideV.active=true;guideV.dragging=true;guideV.pointerId=evt.pointerId;guideV.x=clamp(x,L,R);capture(evt);draw();return;}
+		const {x,y}=pointerPos(evt),hit=anchorHit(x,y),{L,R,T,B}=bounds();
+		if(hit){dragging=hit;try{canvas.setPointerCapture(evt.pointerId);}catch(e){};return;}
+		if(x>=L&&x<=R&&y>=T-18&&y<=T+12){guideH={active:true,y:clamp(y,T,B),dragging:true,pointerId:evt.pointerId};try{canvas.setPointerCapture(evt.pointerId);}catch(e){};draw();return;}
+		if(y>=T&&y<=B&&x>=R-12&&x<=R+18){guideV={active:true,x:clamp(x,L,R),dragging:true,pointerId:evt.pointerId};try{canvas.setPointerCapture(evt.pointerId);}catch(e){};draw();return;}
 	});
 	canvas.addEventListener("pointermove",evt=>{
 		const {x,y}=pointerPos(evt),{L,R,T,B}=bounds();
@@ -250,18 +204,13 @@
 		if(guideH.dragging&&evt.pointerId===guideH.pointerId){guideH.y=clamp(y,T,B);draw();return;}
 		if(guideV.dragging&&evt.pointerId===guideV.pointerId){guideV.x=clamp(x,L,R);draw();return;}
 	});
-	canvas.addEventListener("pointerup",evt=>{dragging=null;if(guideH.pointerId===evt.pointerId){guideH.dragging=false;guideH.pointerId=null;}if(guideV.pointerId===evt.pointerId){guideV.dragging=false;guideV.pointerId=null;}release(evt);draw();});
-	canvas.addEventListener("pointercancel",evt=>{dragging=null;guideH.dragging=false;guideV.dragging=false;guideH.pointerId=null;guideV.pointerId=null;release(evt);});
-
-	plotBtn.addEventListener("click",()=>{
-		setMessage("");const parsed=parseTable();if(!parsed.ok){setMessage(parsed.err);return;}
-		dataPoints=parsed.pts.slice();yMax=computeYMax();const {L,R,B}=bounds();anchors.a=nearestBorderPoint(L,B);anchors.b=nearestBorderPoint(R,yToCanvas(yMax*.92));guideH.active=false;guideV.active=false;draw();
-	});
-	clearBtn.addEventListener("click",()=>{setMessage("");dataPoints=[];yMax=40;defaultAnchors();guideH={active:false,y:0,dragging:false,pointerId:null};guideV={active:false,x:0,dragging:false,pointerId:null};draw();});
-	resetBtn.addEventListener("click",()=>{setMessage("");renderTable();dataPoints=[];yMax=40;defaultAnchors();guideH={active:false,y:0,dragging:false,pointerId:null};guideV={active:false,x:0,dragging:false,pointerId:null};draw();});
-	printBtn.addEventListener("click",()=>{draw();window.print();});
-
-	renderTable();defaultAnchors();draw();
+	function endPointer(evt){dragging=null;if(guideH.pointerId===evt.pointerId){guideH.dragging=false;guideH.pointerId=null;}if(guideV.pointerId===evt.pointerId){guideV.dragging=false;guideV.pointerId=null;}try{canvas.releasePointerCapture(evt.pointerId);}catch(e){};}
+	canvas.addEventListener("pointerup",endPointer);canvas.addEventListener("pointercancel",endPointer);
+	document.getElementById("plotBtn").addEventListener("click",()=>{setMessage("");const parsed=parseData();if(!parsed.ok){setMessage(parsed.err);return;}dataPoints=parsed.pts;defaultAnchors();draw();});
+	document.getElementById("clearBtn").addEventListener("click",()=>{setMessage("");dataPoints=[];guideH={active:false,y:0,dragging:false,pointerId:null};guideV={active:false,x:0,dragging:false,pointerId:null};defaultAnchors();draw();});
+	document.getElementById("resetBtn").addEventListener("click",()=>{setMessage("");dataPoints=[];renderRows(INITIAL_ROWS);guideH={active:false,y:0,dragging:false,pointerId:null};guideV={active:false,x:0,dragging:false,pointerId:null};defaultAnchors();draw();});
+	document.getElementById("printBtn").addEventListener("click",()=>{draw();window.print();});
+	renderRows(INITIAL_ROWS);defaultAnchors();draw();
 })();
 </script>
 </body>
