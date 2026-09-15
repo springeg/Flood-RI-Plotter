@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flood Probability Plotter - Problem 1</title>
+<style>
+:root{--ink:#222;--grid:#9a9a9a;--btn:#efefef;--btnb:#666}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:white}
+.page{max-width:1100px;margin:18px auto 26px;padding:0 14px}
+h1{margin:4px 0 10px;font-size:38px;font-weight:700}
+.plotWrap{display:flex;justify-content:center}
+canvas{background:white;width:min(980px,96vw);height:auto;touch-action:none}
+.controls{margin:8px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.controls .spacer{flex:1 1 auto}
+.btn{font:18px Arial,Helvetica,sans-serif;padding:6px 18px;background:var(--btn);border:2px solid var(--btnb);cursor:pointer;box-shadow:1px 1px 0 rgba(0,0,0,.12)}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.msg{margin-left:8px;font-size:16px;color:#b00020;min-height:20px}
+table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:16px}
+th,td{border:2px solid #333;padding:0}
+th{background:#f0f0f0;text-align:left;padding:8px 10px;font-size:18px}
+td input{width:100%;box-sizing:border-box;border:0;padding:8px 10px;font:16px Arial,Helvetica,sans-serif;background:white}
+td input:focus{outline:2px solid #4a90e2;outline-offset:-2px}
+.smallNote{font-size:14px;color:#444;margin-top:8px}
+.footer{margin-top:12px;font-size:14px;color:#333;text-align:left}
+@media print{
+	.page{max-width:none;margin:0;padding:0}
+	.controls,.msg{display:none!important}
+	.smallNote{display:none!important}
+	h1{margin:0 0 8px}
+	canvas{width:100%!important;height:auto!important}
+	table,th,td input{font-size:12px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+	<h1>Flood Probability Plotter — Problem 1</h1>
+
+	<div class="plotWrap">
+		<canvas id="plot" width="980" height="620" aria-label="Flood probability plot"></canvas>
+	</div>
+
+	<div class="controls">
+		<div class="spacer"></div>
+		<button class="btn" id="plotBtn" type="button">Plot</button>
+		<button class="btn" id="clearBtn" type="button">Clear Plot</button>
+		<button class="btn" id="resetBtn" type="button">Reset Table</button>
+		<button class="btn" id="printBtn" type="button">Print/PDF</button>
+	</div>
+	<div class="msg" id="msg"></div>
+
+	<table id="dataTable">
+		<thead>
+			<tr>
+				<th style="width:13%;">Year</th>
+				<th style="width:16%;">Stage (feet)</th>
+				<th style="width:16%;">WSE</th>
+				<th style="width:12%;">Rank</th>
+				<th style="width:17%;">Probability (%)</th>
+				<th style="width:18%;">RI (years)</th>
+			</tr>
+		</thead>
+		<tbody id="tbody"></tbody>
+	</table>
+
+	<div class="smallNote">
+		Complete the table, then click Plot. The plot uses Stage (feet) and Probability (%). Probability is exceedance probability.
+	</div>
+	<div class="footer">Made by Dr. G.S. Springer and ChatGPT</div>
+</div>
+
+<script>
+(() => {
+	"use strict";
+
+	const initialRows = [
+		["2017","19","1219","6","60","1.67"],
+		["2018","22","","","",""],
+		["2019","23.1","","","",""],
+		["2020","15.1","","","",""],
+		["2021","20","","","",""],
+		["2022","18.1","","","",""],
+		["2023","24.7","","","",""],
+		["2024","16.8","","","",""],
+		["2025","21","","","",""]
+	];
+
+	const PROB_TICKS = [99.5,99,95,90,75,50,25,10,5,1,0.5,0.1];
+	const canvas = document.getElementById("plot");
+	const ctx = canvas.getContext("2d");
+	const tbody = document.getElementById("tbody");
+	const msg = document.getElementById("msg");
+	const G = {left:120,right:40,top:85,bottom:110};
+	let points = [];
+
+	function normInv(p){
+		if(!(p>0&&p<1)) return NaN;
+		const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239];
+		const b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572];
+		const c=[-.007784894002430293,-.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783];
+		const d=[.007784695709041462,.3224671290700398,2.445134137142996,3.754408661907416];
+		const pl=.02425, ph=1-pl; let q,r;
+		if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+		if(p>ph){q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+		q=p-.5;r=q*q;
+		return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+	}
+
+	function probToZ(pct){return normInv(1-pct/100);}
+	function xCanvas(pct){
+		const z=probToZ(pct), z0=probToZ(PROB_TICKS[0]), z1=probToZ(PROB_TICKS[PROB_TICKS.length-1]);
+		return G.left+(z-z0)/(z1-z0)*(canvas.width-G.right-G.left);
+	}
+	function niceMax(v){
+		if(!isFinite(v)||v<=0) return 40;
+		const target=v*1.15, mag=Math.pow(10,Math.floor(Math.log10(target))), n=target/mag;
+		return (n<=1?1:n<=2?2:n<=5?5:10)*mag;
+	}
+	function yCanvas(v,yMax){
+		const top=G.top,bottom=canvas.height-G.bottom;
+		return bottom-(v/yMax)*(bottom-top);
+	}
+
+	function renderRows(rows){
+		tbody.innerHTML="";
+		rows.forEach((row,r)=>{
+			const tr=document.createElement("tr");
+			row.forEach((val,c)=>{
+				const td=document.createElement("td"), input=document.createElement("input");
+				input.type=(c===0)?"text":"number";
+				input.value=val;
+				if(c!==0) input.step="any";
+				input.dataset.col=c; input.dataset.row=r;
+				td.appendChild(input); tr.appendChild(td);
+			});
+			tbody.appendChild(tr);
+		});
+	}
+
+	function getRows(){return [...tbody.querySelectorAll("tr")].map(tr=>[...tr.querySelectorAll("input")].map(i=>i.value));}
+
+	function drawAxes(yMax){
+		ctx.clearRect(0,0,canvas.width,canvas.height);
+		ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+		const L=G.left,R=canvas.width-G.right,T=G.top,B=canvas.height-G.bottom;
+		ctx.strokeStyle="#222";ctx.lineWidth=2;ctx.strokeRect(L,T,R-L,B-T);
+		ctx.font="15px Arial";ctx.fillStyle="#222";ctx.textAlign="center";ctx.textBaseline="top";
+		PROB_TICKS.forEach(p=>{
+			const x=xCanvas(p);
+			ctx.strokeStyle="#aaa";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,B);ctx.stroke();
+			ctx.fillStyle="#222";ctx.fillText(String(p),x,B+10);
+		});
+		const nTicks=8;
+		ctx.textAlign="right";ctx.textBaseline="middle";
+		for(let i=0;i<=nTicks;i++){
+			const val=yMax*i/nTicks, y=yCanvas(val,yMax);
+			ctx.strokeStyle="#aaa";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke();
+			ctx.fillStyle="#222";ctx.fillText((Math.round(val*10)/10).toString(),L-10,y);
+		}
+		ctx.textAlign="center";ctx.textBaseline="top";ctx.font="18px Arial";
+		ctx.fillText("exceedance probability (%)",(L+R)/2,B+48);
+		ctx.save();ctx.translate(35,(T+B)/2);ctx.rotate(-Math.PI/2);ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("stage (feet)",0,0);ctx.restore();
+	}
+
+	function draw(){
+		const rows=getRows(); points=[]; let invalid=false;
+		rows.forEach(row=>{
+			const stage=parseFloat(row[1]), prob=parseFloat(row[4]);
+			if(row[1]!==""||row[4]!==""){
+				if(isFinite(stage)&&isFinite(prob)&&prob>0&&prob<100) points.push({stage,prob});
+				else if(row[4]!==""&&!(isFinite(prob)&&prob>0&&prob<100)) invalid=true;
+			}
+		});
+		if(points.length===0){drawAxes(40);msg.textContent="Enter valid Stage and Probability values before plotting.";return;}
+		const yMax=niceMax(Math.max(...points.map(d=>d.stage))); drawAxes(yMax);
+		ctx.fillStyle="#000";
+		points.forEach(d=>{const x=xCanvas(d.prob),y=yCanvas(d.stage,yMax);ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();});
+		msg.textContent=invalid?"Some rows with invalid probability values were ignored. Probability must be between 0 and 100.":"";
+	}
+
+	function reset(){renderRows(initialRows);points=[];msg.textContent="";drawAxes(40);}
+	document.getElementById("plotBtn").addEventListener("click",draw);
+	document.getElementById("clearBtn").addEventListener("click",()=>{points=[];msg.textContent="";drawAxes(40);});
+	document.getElementById("resetBtn").addEventListener("click",reset);
+	document.getElementById("printBtn").addEventListener("click",()=>window.print());
+	reset();
+})();
+</script>
+</body>
+</html>
