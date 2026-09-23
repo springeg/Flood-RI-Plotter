@@ -69,20 +69,20 @@
 (() => {
 	"use strict";
 	const INITIAL_ROWS=[
-		["2017","23.1","","","",""],
-		["2018","16.9","","","",""],
-		["2019","17.8","","","",""],
-		["2020","21.4","","","",""],
-		["2021","15.2","","","",""],
-		["2022","14","","","",""],
-		["2023","12","","","",""],
-		["2024","18.9","","","",""],
-		["2025","20","","","",""],
-		["","","","","",""],
-		["","","","","",""]
+		["2002","9.5","2769.5","10","83","1.2"],
+		["2003","13.9","","","",""],
+		["2004","16.9","","","",""],
+		["2005","18.3","","","",""],
+		["2006","11.6","","","",""],
+		["2007","15.8","","","",""],
+		["2008","10.7","","","",""],
+		["2009","13","","","",""],
+		["2010","14.9","","","",""],
+		["2011","12.4","","","",""],
+		["2012","8","","","",""]
 	];
 	const PROB_TICKS=[99.5,99,95,90,50,10,5,1,0.5,0.1];
-	const MINOR_PROB_TICKS=[8.33,16.7,25,33.3,42.7,58.3,66.7,75,83.3,91.7];
+	const MINOR_PROB_TICKS=[2,8.33,16.7,25,33.3,42.7,58.3,66.7,75,83.3,91.7];
 	const TOP_MINOR_PROB_TICKS=[0.2];
 	const Y_MAX=40;
 	const canvas=document.getElementById("plot");
@@ -146,8 +146,9 @@
 			ctx.strokeStyle="#2a2a2a";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,B);ctx.lineTo(x,B+12);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-12);ctx.stroke();
 			labelBg(formatPct(p),x,B+16,"center","top");labelBg(formatRI(100/p),x,T-26,"center","bottom");
 		}
-		ctx.strokeStyle="#2a2a2a";ctx.lineWidth=2;
+		ctx.strokeStyle="#0066cc";ctx.lineWidth=2;
 		for(const p of MINOR_PROB_TICKS){const x=probCanvas(p);ctx.beginPath();ctx.moveTo(x,B);ctx.lineTo(x,B+8);ctx.stroke();ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-8);ctx.stroke();}
+		ctx.strokeStyle="#2a2a2a";
 		for(const p of TOP_MINOR_PROB_TICKS){const x=probCanvas(p);ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,T-8);ctx.stroke();}
 		ctx.textAlign="right";ctx.textBaseline="middle";
 		for(let v=0;v<=Y_MAX;v+=5){
